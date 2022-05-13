@@ -1,0 +1,114 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+
+#define SHMKEY 42073
+
+void shmCreate(int *mem, int size);
+void shmRead(int *mem, int size);
+void shmWrite(int *mem, int size);
+void shmDelete(int *mem);
+
+int main(int argc, char *argv[])
+{
+    int count = 1;
+    char *tomb[] = {"create", "read", "write", "delete"};
+    int mem;
+	int size = 512;
+
+    while (count < argc) {
+        if (strcmp(tomb[0], argv[count]) == 0){
+            printf("- Create -\n");
+            shmCreate(&mem, size);    
+        }
+        else if (strcmp(tomb[1], argv[count]) == 0) {
+            printf("- Read -\n");
+            shmCreate(&mem, size);
+            shmRead(&mem, size);
+        }
+        else if (strcmp(tomb[2], argv[count]) == 0) {
+            printf("- Write -\n");
+            shmCreate(&mem, size);
+            shmWrite(&mem, size);
+        }
+        else if (strcmp(tomb[3], argv[count]) == 0) {
+            printf("- Delete -\n");
+            if ((mem=shmget(SHMKEY, size, 0)) < 0)
+	            printf("Ez a szegmens nem is letezik! \n");
+            else
+                shmDelete(&mem);
+        }
+        else {
+            printf("- Nincs ilyen parancs -\n");
+        }            
+        count++;
+    }
+
+	exit(0);
+}
+
+void shmCreate(int *mem, int size) {
+
+    key_t key;
+    int shmflg; 
+            
+    key = SHMKEY;
+    
+    shmflg = 0;
+	if ((*mem=shmget(key, size, shmflg)) < 0) {
+	   printf("A szegmens meg nem letezik! El kell kesziteni! \n");
+	   shmflg = 01747 | IPC_CREAT;
+
+	   if ((*mem=shmget(key, size, shmflg)) < 0) {
+	      perror("Az shmget() system-call sikertelen!\n");
+	      exit(-1);
+	   }
+	}
+}
+
+void shmRead(int *mem, int size) {
+
+    int shmflg;	
+    struct readstruct {
+		int  hossz;
+		char szoveg[size-sizeof(int)];
+	} *segm;
+
+    shmflg = 00327 | SHM_RND;
+	segm = (struct readstruct *)shmat(*mem, NULL, shmflg);
+
+	if (strlen(segm->szoveg) > 0) 
+		printf("A memory-n levo szoveg: %s\n",segm->szoveg);
+    else
+        printf("A memory-n nincs szoveg\n");
+
+	shmdt(segm);
+}
+
+void shmWrite(int *mem, int size) {
+    
+    int shmflg;    
+    struct writestruct {
+		int  hossz;
+		char szoveg[size-sizeof(int)];
+	} *segm;
+
+    shmflg = 0327 | SHM_RND;
+	segm = (struct writestruct *)shmat(*mem, NULL, shmflg);
+ 
+	printf("A memoriara iras: \n");
+	gets(segm->szoveg);
+	printf("Az uj szoveg: %s\n",segm->szoveg);
+	segm->hossz=strlen(segm->szoveg);
+		
+	shmdt(segm);
+}
+
+void shmDelete(int *mem) {
+
+    shmctl(*mem, IPC_RMID, NULL);
+	printf("Szegmens torolve.\n");
+}
